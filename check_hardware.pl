@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Globvill::WSMAN;
+use WSMAN::easy;
 use Getopt::Long;
 
 my $host ||= "0";
