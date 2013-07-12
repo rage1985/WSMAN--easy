@@ -29,7 +29,7 @@ if ( $host eq '0' | $user eq '0' | $pass eq '0' ) {
 }
 
 
-my $WSMAN = WSMAN::easy->new( ### Erstellen des Verbindungsobjekts
+my $WSMAN = DMTF::WSMAN::easy->new( ### Erstellen des Verbindungsobjekts
 
 	"host"		=>	"$host",
 	"port"		=>      "443",
