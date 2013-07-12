@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use WSMAN::easy;
+use DMTF::WSMAN::easy;
 use Getopt::Long;
 
 my $host ||= "0";
@@ -29,7 +29,7 @@ if ( $host eq '0' | $user eq '0' | $pass eq '0' ) {
 }
 
 
-my $WSMAN = Globvill::WSMAN->new( ### Erstellen des Verbindungsobjekts
+my $WSMAN = WSMAN::easy->new( ### Erstellen des Verbindungsobjekts
 
 	"host"		=>	"$host",
 	"port"		=>      "443",
