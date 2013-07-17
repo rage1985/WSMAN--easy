@@ -8,15 +8,20 @@ BETA
 ##### Caveeats
 
 This module is not finished yet. DMTF compliance is not given yet.
+
 You may experience missing features, unexpected behavior.
+
 Please report everything via the issues function.
+
 The PUT Method is not implemented yet.
+
 Some Namespace for specific operations are not implemented yet.
+
 SSL connections to Mircosoft Windows WinRM are not possible yet due to an incompability of Curl´s standard SSL-Provider.
 
 ## Description
 
-The WSMAN::easy module implemets a object oriented interface to the Web Services Management (WSMAN) Protocol. 
+The WSMAN::easy module implemets an object oriented interface to the Web Services Management (WSMAN) Protocol. 
 Perl applications can use the module to retrieve or update information on a remote host using the WSMAN protocol.
 The WSMAN::easy module assumes that the user has a basic understanding of the Web Services Management Protocol and related network management concepts.
 
