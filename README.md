@@ -3,12 +3,28 @@ WSMAN--easy
 
 Object oriented interface to DMTF´s WSMAN
 
+BETA 
+----
+##### Caveeats
+
+This module is not finished yet. DMTF compliance is not given yet.
+
+You may experience missing features, unexpected behavior.
+
+Please report everything via the issues function.
+
+The PUT Method is not implemented yet.
+Some Namespace for specific operations are not implemented yet.
+
 ## Description
 
+The WSMAN::easy module implemets a object oriented interface to the Web Services Management (WSMAN) Protocol. 
+Perl applications can use the module to retrieve or update information on a remote host using the WSMAN protocol.
+The WSMAN::easy module assumes that the user has a basic understanding of the Web Services Management Protocol and related network management concepts.
 
+The module will be WSMAN 1.1.1 compliant when out of beta. See http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.1.1.pdf
 
 ## Prequisits
-
 
 Data::UUID
 
@@ -26,7 +42,7 @@ XML::Simple  (Will also be removed soon)
 
 ## Installation
 
-Copy the Module (.pm) to the Folder of your Script or into a location in your @INC variable
+Copy the Module (.pm) to the Folder of your Script or into a location in your @INC variable.
 
 ## Methods
 
@@ -46,51 +62,12 @@ my $WSMAN = WSMAN::easy->new(
 );
 ```
 
-This Method will create a new WSMan Session Object that stores connection specific information for use in later WSMAN Operation Methods.
-
-##### host
-
-Address of the remote host which runs the WSMAN provider.
-Can be either IPv4, FQDN or IPv6 in Square brackets.
-
-##### port
-
-Port of the remote on which the WSMAN-Provider is configured.
-
-##### user
-
-Username of an user with sufficient rights to connect and perform WSMAN Operations on the remote host.
-
-##### passwd
-
-Passphrase of the User above mentioned User.
-
-##### urlpath
-
-The url path under which the specific WSMAN-Provider is reachable.
-For example:
-
-wsmanserver.org/wsman (/wsman would be your urlpath)
-
-The first / is always given so in this case you would just hand over wsman to the variable.
-
-##### proto
-
-The protocol the server is listening to. Can be either http or https.
-
-##### verbose
-
-Set the verbose mode of the module. This will you the created requests and the connection information from Curl.
-Can be either 0, 1 or true, false.
-
 ### WSMAN::easy->identify()
 
 ```perl
 my $identify = $WSMAN->identify()	
 ```
 
-Performs an WSMAN-Identify Operation on the remote specified by the "new" Object.
-There are no arguments to be handed over.
 
 ### WSMAN::easy->enumerate()
 
@@ -139,6 +116,9 @@ my $invoke = $WSMAN->invoke(
 	
 ```
 
+## Author
+
+Sascha Schaal
 
 
 
