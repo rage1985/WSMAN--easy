@@ -33,7 +33,7 @@ Copy the Module (.pm) to the Folder of your Script or into a location in your @I
 ### WSMAN::easy->new()
 
 ```perl
-my $WSMAN = DMTF::WSMAN::easy->new(
+my $WSMAN = WSMAN::easy->new(
 
 	"ost"		=>	"$hostname",
 	"port"		=>	"$port",
