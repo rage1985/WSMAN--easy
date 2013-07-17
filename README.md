@@ -8,13 +8,11 @@ BETA
 ##### Caveeats
 
 This module is not finished yet. DMTF compliance is not given yet.
-
 You may experience missing features, unexpected behavior.
-
 Please report everything via the issues function.
-
 The PUT Method is not implemented yet.
 Some Namespace for specific operations are not implemented yet.
+SSL connections to Mircosoft Windows WinRM are not possible yet due to an incompability of Curl´s standard SSL-Provider.
 
 ## Description
 
