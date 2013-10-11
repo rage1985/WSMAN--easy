@@ -1,86 +1,129 @@
 WSMAN--easy
 ===========
 
-# WSMAN::Easy
-
 Object oriented interface to DMTF´s WSMAN
+
+BETA 
+----
+##### Caveeats
+
+This module is not finished yet. DMTF compliance is not given yet.
+
+You may experience missing features, unexpected behavior.
+
+Please report everything via the issues function.
+
+The PUT Method is not implemented yet.
+
+Some Namespace for specific operations are not implemented yet.
+
+SSL connections to Mircosoft Windows WinRM are not possible yet due to an incompability of Curl´s standard SSL-Provider.
 
 ## Description
 
+The WSMAN::easy module implemets an object oriented interface to the Web Services Management (WSMAN) Protocol. 
+Perl applications can use the module to retrieve or update information on a remote host using the WSMAN protocol.
+The WSMAN::easy module assumes that the user has a basic understanding of the Web Services Management Protocol and related network management concepts.
 
+The module will be WSMAN 1.1.1 compliant when out of beta. See http://www.dmtf.org/sites/default/files/standards/documents/DSP0226_1.1.1.pdf
 
 ## Prequisits
 
-use Data::UUID;
-use WWW::Curl::Easy;
-use MIME::Base64;
-use Data::Dumper; (Will be removed soon)
-use XML::LibXML;
-use XML::Simple; (Will also be removed soon)
+Data::UUID
+
+WWW::Curl::Easy
+
+MIME::Base64
+
+Data::Dumper (Will be removed soon)
+
+XML::LibXML
+
+XML::Simple  (Will also be removed soon)
+
+
 
 ## Installation
 
-Copy the Module (.pm) to the Folder of your Script or into a location in your @INC variable
+Copy the Module (.pm) to the Folder of your Script or into a location in your @INC variable.
 
 ## Methods
 
-### new
+### WSMAN::easy->new()
 
-my $WSMAN = DMTF::WSMAN::easy->new( 
+```perl
+my $WSMAN = WSMAN::easy->new(
 
-	"host"		=>	"$hostname",
-	"port"		=>      "$port",
-        "user"		=>      "$username",	
-        "passwd"	=>      "$password",
-        "urlpath"	=>      "$urlpath",
-        "proto"		=>	"$protocol",
-        "verbose"	=>	"$verbosemode"
+	"ost"		=>	"$hostname",
+	"port"		=>	"$port",
+	"user"		=>	"$username",	
+	"passwd"	=>	"$password",
+	"urlpath"	=>	"$urlpath",
+	"proto"		=>	"$protocol",
+	"verbose"	=>	"$verbosemode"
+	
+);
+```
+
+### WSMAN::easy->identify()
+
+```perl
+my $identify = $WSMAN->identify()	
+```
+
+
+### WSMAN::easy->enumerate()
+
+```perl
+my $enum = $WSMAN->enumerate(
+
+	"class"			=>	"$class",
+	"ns"			=>	"$namespace",
+	"optimized"		=>	"$optimized",
+	"maxelements"	=>	"$maxelements",
+	"Filter"		=>	"Select * from $class where $param=$expr",
+	"eprmode"		=>	"$eprmode",
+	"SelectorSet"	=>	{"$selector" => "$expr"}
 
 );
 
-This Method will create a new WSMan Session Object that stores connection specific information for use in later WSMAN Operation Methods.
 
-#### host
+```
 
-Address of the remote host which runs the WSMAN provider.
-Can be either IPv4, FQDN or IPv6 in Square brackets.
+### WSMAN::easy->get()
 
-#### port
+```perl
 
-Port of the remote on which the WSMAN-Provider is configured.
+my $get = $WSMAN->get(
 
-#### user
+	"class"			=>	"$class",
+	"ns"			=>	"$namespace",
+	"SelectorSet"	=>	{"InstanceID" => "$param => $expr"}
 
-Username of an user with sufficient rights to connect and perform WSMAN Operations on the remote host.
+);
+```
 
-#### passwd
 
-Passphrase of the User above mentioned User.
+### WSMAN::easy->invoke() 
 
-#### urlpath
+```perl
 
-The url path under which the specific WSMAN-Provider is reachable.
-For example:
+my $invoke = $WSMAN->invoke(
 
-wsmanserver.org/wsman (/wsman would be your urlpath)
+	"class"			=>	"$class",
+	"InvokeClass"   =>	"$invokeclass",
+	"SelectorSet"   =>	{"$param" => "$expr"},
+	"Invoke_Input"	=>	{"$param" => "$input"}
+	
+);
+	
+```
 
-The first / is always given so in this case you would just hand over wsman to the variable.
+## Author
 
-#### proto
+Sascha Schaal
 
-The protocol the server is listening to. Can be either http or https.
 
-#### verbose
 
-Set the verbose mode of the module. This will you the created requests and the connection information from Curl.
-Can be either 0, 1 or true, false.
-
-### identify
-
-### enum
-
-### get
-
-### invoke 
 
 
