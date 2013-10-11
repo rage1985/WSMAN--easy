@@ -1,4 +1,4 @@
-package WSMAN::easy;
+package lib::easy;
 
 
 =pod
@@ -51,13 +51,13 @@ use strict;
 use warnings;
 
 use Data::UUID;
-use WWW::Curl::Easy; # Wir benutzen libCurl wegen des Leistungsgewinns gegeüber LWP
 use MIME::Base64;
 use Exporter;
-use Data::Dumper; # Kann nach dem Debugging raus
+use Data::Dumper; 
 use Carp;
 use XML::LibXML;
-use XML::Simple; # Eventuell bekomme ich es mit dem LibXML serializer hin dann kann das hier auch raus
+use XML::Simple; 
+use LWP::UserAgent;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 $VERSION     = 1.02;
@@ -164,7 +164,7 @@ $address->setNamespace($Namespaces{"ADDR"}, "wsa", 1);
 $address->appendTextNode('http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous');
 
 ###Konstruktor WSMAN###
-sub new {
+sub session {
   my $class = shift; 
   my %args  = @_;
  
@@ -186,7 +186,6 @@ sub new {
 }
 
 ###WSMAN Identify###
-
 sub identify{
   
   my $self = shift;
@@ -209,7 +208,8 @@ sub identify{
 
   #print $identify->toString(2);
   
-  $self->_CONNECT($identify->toString(2));
+  #$self->_CONNECT($identify->toString(2));
+  $self->_CONNECT2($identify->toString(2));
 
 }
 
@@ -278,6 +278,7 @@ sub enumerate{
   return $self->_CONNECT($request->toString(2));
 }
 
+###WSMAN GET###
 sub get{
 
   my $self = shift;
@@ -305,6 +306,7 @@ sub get{
   return $self->_CONNECT($request->toString(2));
 }
 
+###WSMAN Invoke###
 sub invoke{
 
   my $self = shift;
@@ -352,8 +354,7 @@ sub invoke{
   return $self->_CONNECT($request->toString(2));
 }
 
-###Private Methode für Selektoren###
-
+###privat Method for Selector-Sets###
 sub _SELECTORSET{
 
   my $self = shift;
@@ -374,8 +375,7 @@ sub _SELECTORSET{
 }
 # TODO: Abgewandelte Methode für das setzen von Namespaces erstellen, dabei Racing-Condition vermeiden.
 
-###Private Methode für Klassen URI´s###
-
+###privat Method for Class URI generation###
 sub _SETRURI{
 
   my $self = shift;
@@ -428,56 +428,143 @@ sub _SETRURI{
 
 
 ###Private Connection Method###
-sub _CONNECT{
 
-  my $self = shift;
+# sub _CONNECT{
 
-  my $curl = WWW::Curl::Easy->new;
-  $curl->setopt( CURLOPT_VERBOSE, "$self->{'verbose'}");
-  $curl->setopt( CURLOPT_SSL_VERIFYHOST, 0);
-  $curl->setopt( CURLOPT_SSL_VERIFYPEER, 0);
-  $curl->setopt( CURLOPT_URL,            "$self->{'proto'}://$self->{'host'}/$self->{'urlpath'}");
-  $curl->setopt( CURLOPT_USERPWD,        "$self->{'user'}:$self->{'passwd'}");
-  $curl->setopt( CURLOPT_FOLLOWLOCATION, 1);
+# my $self = shift;
+
+# my $curl = WWW::Curl::Easy->new;
+  # $curl->setopt( CURLOPT_VERBOSE, "$self->{'verbose'}");
+  # $curl->setopt( CURLOPT_SSL_VERIFYHOST, 0);
+  # $curl->setopt( CURLOPT_SSL_VERIFYPEER, 0);
+  # $curl->setopt( CURLOPT_URL,            "$self->{'proto'}://$self->{'host'}/$self->{'urlpath'}");
+  # $curl->setopt( CURLOPT_USERPWD,        "$self->{'user'}:$self->{'passwd'}");
+  # $curl->setopt( CURLOPT_FOLLOWLOCATION, 1);
   
-  $curl->setopt( CURLOPT_PORT,		,$self->{"port"});
-  $curl->setopt( CURLOPT_HEADER(),	0		);
-  $curl->setopt( CURLOPT_HTTPHEADER(), ['Content-Type: application/soap+xml;charset=UTF-8']);
+# $curl->setopt( CURLOPT_PORT,		,$self->{"port"});
+  # $curl->setopt( CURLOPT_HEADER(),	0		);
+  # $curl->setopt( CURLOPT_HTTPHEADER(), ['Content-Type: application/soap+xml;charset=UTF-8']);
 
-  my $response_body;
-  $curl->setopt( CURLOPT_POST,       1 );
-  $curl->setopt( CURLOPT_TIMEOUT,    120 );
-  $curl->setopt( CURLOPT_POSTFIELDS, $_[0] );
-  $curl->setopt( CURLOPT_WRITEDATA,  \$response_body );
+# my $response_body;
+  # $curl->setopt( CURLOPT_POST,       1 );
+  # $curl->setopt( CURLOPT_TIMEOUT,    120 );
+  # $curl->setopt( CURLOPT_POSTFIELDS, $_[0] );
+  # $curl->setopt( CURLOPT_WRITEDATA,  \$response_body );
 
-  my $retcode = $curl->perform;
+  # my $retcode = $curl->perform;
 
-  if ( $retcode == 0 ) {
+  # if ( $retcode == 0 ) {
     
     #print $response_body;
 
 
-    my $data = $xml->XMLin($response_body); # TODO: Serializer von XML::LibXML nutzen. Dann kann XML::Simple raus.
+    # my $data = $xml->XMLin($response_body); # TODO: Serializer von XML::LibXML nutzen. Dann kann XML::Simple raus.
  
-    if (exists $data->{'s:Header'}->{'wsa:Action'}){
-      if ($data->{'s:Header'}->{'wsa:Action'} eq 'http://schemas.dmtf.org/wbem/wsman/1/wsman/fault' || $data->{'s:Header'}->{'wsa:Action'} eq 'http://schemas.xmlsoap.org/ws/2004/08/addressing/fault'){
-        croak "WSMAN FAULT: ", $data->{'s:Body'}->{'s:Fault'}->{'s:Reason'}->{'s:Text'}->{'content'}; # TODO: exeption handling prüfen -> werden alle WSMan errors abgefangen ?
-      }
+    # if (exists $data->{'s:Header'}->{'wsa:Action'}){
+      # if ($data->{'s:Header'}->{'wsa:Action'} eq 'http://schemas.dmtf.org/wbem/wsman/1/wsman/fault' || $data->{'s:Header'}->{'wsa:Action'} eq 'http://schemas.xmlsoap.org/ws/2004/08/addressing/fault'){
+        # croak "WSMAN FAULT: ", $data->{'s:Body'}->{'s:Fault'}->{'s:Reason'}->{'s:Text'}->{'content'}; # TODO: exeption handling prüfen -> werden alle WSMan errors abgefangen ?
+      # }
 
-        else{
-          return $data;
-        }
-    }
-    else{
-      return $data;
-    }
-  }
-  else {
+        # else{
+          # return $data;
+        # }
+    # }
+    # else{
+      # return $data;
+    # }
+  # }
+  # else {
 
     # HTTP Error code, type of error, error message
-    croak ("Code:$retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n") ;
+    # croak ("Code:$retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n") ;
 
+  # }
+# }
+
+sub _CONNECT{
+
+  my $self = shift;
+
+  my $ua = new LWP::UserAgent;
+  $ua->credentials("$self->{'host'}/$self->{'urlpath'}", "$self->{'urlpath'}" );
+  #$ua->ssl_opts( verify_hostname => 0, verify_peer => 0 );
+
+  my $req = new HTTP::Request 'POST',"$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}";
+  #print $req;
+  $req->content_type('application/soap+xml;charset=UTF-8');
+  $req->authorization_basic($self->{'user'}, $self->{'passwd'});
+  $req->content($_[0]);
+
+  my $res = $ua->request($req);
+  #print $res->as_string;
+  my $result = $res->content();
+  print $result;
+  
+  return $result;
+
+}
+
+sub _PARSER{
+  
+  my $self = shift;
+  my $args = @_;
+  print $_[0];
+  
+  
+  
+  
+  my $parser = XML::LibXML->new();
+
+my $doc = XML::LibXML->load_xml(
+      string => $_[0]
+      # parser options ...
+    );
+
+my $root = $doc->documentElement();
+
+my @nodes = $root->findnodes( './s:Body/n:PullResponse/n:Items/*') && $root->findnodes('./s:Body/wsmid:IdentifyResponse/*');
+my $output;
+my @childnodes;
+my @childnodes2;
+my @childnodes3;
+
+foreach (@nodes){
+  $output .= "----";
+  $output .= $_->localName;
+  $output .= "----\n";
+  if ($_->hasChildNodes() == '1'){
+    @childnodes = $_->childNodes();
+    foreach (@childnodes){
+      if ($_->nodeName ne '#text' && $_->hasChildNodes() == '1'){
+        $output .= $_->localName;
+        $output .= " -> ";
+        @childnodes2 = $_->childNodes();
+          foreach (@childnodes2){
+            if ($_->hasChildNodes() == '0'){
+              $output .= $_->nodeValue;
+              $output .= "\n";
+            }
+        else{
+          @childnodes3 = $_->childNodes();
+          foreach (@childnodes3){
+            if ($_->hasChildNodes() == '0'){
+              $output .= $_->nodeValue;
+              $output .= "\n";
+            }
+          }
+        
+      }
+    }
   }
+}   
+  }
+  else{
+  print $_->localName," hat keine childnodes\n";
+  }
+  
+};
+
+return $output;
 }
 
 sub close{

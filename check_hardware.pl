@@ -3,10 +3,10 @@
 use strict;
 use warnings;
 
-use DMTF::WSMAN::easy;
+use lib::easy;
 use Getopt::Long;
 
-my $host ||= "0";
+my $host ||= "o";
 my $user ||= "0";
 my $pass ||= "0";
 
