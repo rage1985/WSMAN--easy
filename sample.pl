@@ -5,7 +5,7 @@ use warnings;
 
 use Data::Dumper;
 use XML::Simple;
-use lib::easy;
+use lib::Simple;
 my $xml = new XML::Simple;
 
 
@@ -13,7 +13,7 @@ my $xml = new XML::Simple;
 
 
 
-my $WSMAN = lib::easy->session( ### Erstellen des Verbindungsobjekts
+my $WSMAN = lib::Simple->session( ### Erstellen des Verbindungsobjekts
 	
 	"host"		=>	"web15.dmz.spellen.de",
 	"port"		=>      "5985",
@@ -25,7 +25,7 @@ my $WSMAN = lib::easy->session( ### Erstellen des Verbindungsobjekts
 
 );
 
-my $identify = $WSMAN->identify(); ### WSMAN-Provider auf der Zielmaschine prüfen
+#my $identify = $WSMAN->identify(); ### WSMAN-Provider auf der Zielmaschine prüfen
 
 #my $enum = $WSMAN->enumerate(
 #
@@ -63,8 +63,8 @@ my $identify = $WSMAN->identify(); ### WSMAN-Provider auf der Zielmaschine prüf
 
 
 # );
-my $data = $xml->XMLin($identify);
-print Dumper($data);
+#my $data = $xml->XMLin($identify);
+#print Dumper($data);
 #print "DELL LCD: $get->{'s:Body'}->{'n1:DCIM_SystemString'}->{'n1:CurrentValue'}\n";
 
 

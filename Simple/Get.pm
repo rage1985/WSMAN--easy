@@ -1,11 +1,20 @@
 package WSMAN::Simple::Get;
 
+push ( @INC,"/home/sascha/bin/git/WSMAN/");
+use WSMAN::Simple;
+use Carp;
+
+@ISA = qw( _SELECTORSET _CONNECT _PARSER);
+
 sub get{
 
-  our $self = shift;
-  our %args = @_;
-  our $ug   = new Data::UUID;
-  our $UUID = $ug->create_str(); ###Neue UUID für jeden Vorgang
+  my $class = shift;
+  my $self = bless {
+  }, $class;
+  
+  my %args = @_;
+  my $ug   = new Data::UUID;
+  my $UUID = $ug->create_str(); ###Neue UUID für jeden Vorgang
   
   if ( !$args{"class"}){
     croak "Class fehlt!"
