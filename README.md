@@ -122,7 +122,7 @@ my $invoke = $WSMAN->invoke(
 
 ```perl
 
-my $results = $WSMAN->to_list($response, "w:ITEMS")
+my $results = $WSMAN->to_list($response, "w:ITEMS");
 
 
 ```
