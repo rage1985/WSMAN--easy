@@ -5,39 +5,48 @@ use warnings;
 
 use Data::Dumper;
 use XML::Simple;
-use lib::Simple;
+use lib::easy;
 my $xml = new XML::Simple;
 
+my $exit_unkn = '3';
+
+$SIG{KILL} = $SIG{TERM} = sub{ exit( $exit_unkn ); };
 
 
-
-
-
-my $WSMAN = lib::Simple->session( ### Erstellen des Verbindungsobjekts
+my $WSMAN = lib::easy->session( ### Erstellen des Verbindungsobjekts
 	
-	"host"		=>	"web15.dmz.spellen.de",
-	"port"		=>      "5985",
-        "user"		=>      "Administrator",	
-        "passwd"	=>      "Test1234",
+	"host"		=>	"172.16.0.234",
+	"port"		=>      "443",
+        "user"		=>      "nagios",	
+        "passwd"	=>      "nagios1337",
         "urlpath"	=>      "wsman",
-        "proto"		=>	"http",
-        "verbose"	=>	"1"
+        "proto"		=>	"https",
+        "verbose"	=>	"0",
+        "timeout"	=>	"1"
 
 );
 
 #my $identify = $WSMAN->identify(); ### WSMAN-Provider auf der Zielmaschine prüfen
 
-#my $enum = $WSMAN->enumerate(
-#
-#	"class"		=>	"WIN32_Product", ### Klasse die durchsucht werden solll
-#	"ns"		=>	"root/cimv2", ### Namespace der die Klasse beinhaltet
-#	"optimized"	=>	"true", ### Automatische Enumeration 
-#	"maxelements"	=>	"512" ### Bestimmt die Anzahl der Rückgabeelemente in wsman:Items
-#        "Filter"	=>	"Select * from DCIM_View where InstanceID='DIMM.Socket.A1'", ### CQL Ausgabefilter
-#       "eprmode"       =>      "true" ### Endpoint Reference Mode
-#	"SelectorSet"	=>	{"__cimnamespace" => "root/dcim"} ### Selektoren zur Auswahl eines konkreten Elementes aus der Aufzählung
-#);
+#$WSMAN->close();
+my $enum;
+eval {
+ $enum = $WSMAN->enumerate(
 
+	"class"		=>	"DCIM_SystemView", ### Klasse die durchsucht werden solll
+	"ns"		=>	"root/dcim", ### Namespace der die Klasse beinhaltet
+	"optimized"	=>	"true", ### Automatische Enumeration 
+	"maxelements"	=>	"512", ### Bestimmt die Anzahl der Rückgabeelemente in wsman:Items
+#        "Filter"	=>	"Select * from DCIM_View where InstanceID='DIMM.Socket.A1'", ### CQL Ausgabefilter
+ #	      "eprmode"       =>      "true" ### Endpoint Reference Mode
+#	"SelectorSet"	=>	{"__cimnamespace" => "root/dcim"} ### Selektoren zur Auswahl eines konkreten Elementes aus der Aufzählung
+);
+};
+#my $output = $enum;
+if ($@){
+	print "UNKNOWN: $@";
+	exit $exit_unkn;
+}
 
 
 #my $get = $WSMAN->get(
@@ -63,8 +72,9 @@ my $WSMAN = lib::Simple->session( ### Erstellen des Verbindungsobjekts
 
 
 # );
-#my $data = $xml->XMLin($identify);
-#print Dumper($data);
+#my $data = $xml->XMLin($enum);
+print $WSMAN->to_list($enum, "n1:DCIM_SystemView");
+#print $WSMAN->to_list($enum, "p:Win32_Directory");
 #print "DELL LCD: $get->{'s:Body'}->{'n1:DCIM_SystemString'}->{'n1:CurrentValue'}\n";
 
 

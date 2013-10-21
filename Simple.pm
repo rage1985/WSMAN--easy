@@ -45,7 +45,7 @@ SUCH DAMAGES.
 
 =cut
 
-
+#BEGIN { $Exporter::Verbose=1 }
 
 use strict;
 use warnings;
@@ -97,6 +97,8 @@ URI_CIMV2 URI_WINRM URI_WSMAN URI_SHELL URI_WIN32 URI_VMware URI_ASSOCFI URI_FIL
 					URI_FILTER
 				)]
 		);
+
+
 
 ###Globale XML Namespaces###
 use constant URI_SOAP 	=>	"http://www.w3.org/2003/05/soap-envelope"; 
@@ -161,10 +163,9 @@ sub session {
                           }
   }, $class;
 # TODO: Werte mit defaults initialisieren.
-print Dumper($self);
-_BUILD_MESSAGE($self);
-print Dumper($self);
-
+  
+  print Dumper($self);
+  
   return $self;
 }
 
@@ -175,18 +176,18 @@ sub identify{
   my $self = shift;
 
   my $identify = XML::LibXML::Document->new('1.0');
-  my $ident_envelope = $request->createElement("Envelope");
+  my $ident_envelope = $self->{'REQUEST'}->{'DOC'}->createElement("Envelope");
   $ident_envelope->setNamespace(URI_SOAP ,"s",1);
   $ident_envelope->setNamespace(URI_WSMID, "wsmid",0);
 
-  my $ident_header = $request->createElement("Header");
+  my $ident_header = $self->{'REQUEST'}->{'DOC'}->createElement("Header");
   $ident_header->setNamespace(URI_SOAP ,"s",1);
   $ident_envelope->appendChild($ident_header);
-  $ident_envelope->appendChild($body);
+  $ident_envelope->appendChild($self->{'REQUEST'}->{'BODY'});
 
   my $ident = $identify->createElement("Identify");
   $ident->setNamespace(URI_WSMID, "wsmid",1);
-  $body->appendChild($ident);
+  $self->{'REQUEST'}->{'BODY'}->appendChild($ident);
   
   $identify->setDocumentElement($ident_envelope);
 
@@ -199,48 +200,55 @@ sub identify{
 =cut
 
 ###WSAMAN Enumeration###
-=pod
+
 sub enumerate{
   
-  my $self = shift;
+  my $self = @_[0];
   my %args = @_;
   my $ug   = new Data::UUID;
   my $UUID = $ug->create_str(); ###Neue UUID für jeden Vorgang
+  
+  print "DEBUG: self\n";
+  print Dumper($self);
+  print "\n\n";
+  print "DEBUG: args\n";
+  print Dumper(%args);
+  print "$self->{'host'}";
   
   if ( !$args{"class"}){
     croak "Class fehlt!"
   }
 # TODO: Werte mit defaults initialisieren. 
-  $envelope->setNamespace(URI_ENUM,"wsen",0);
-  $action->appendTextNode("@{[URI_ENUM]}/Enumerate");
-  $to->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
-  $MessageID->appendTextNode("uuid:$UUID");
+  $self->{'REQUEST'}->{'ENVELOPE'}->setNamespace(URI_ENUM,"wsen",0);
+  $self->{'REQUEST'}->{'ACTION'}->appendTextNode("@{[URI_ENUM]}/Enumerate");
+  $self->{'REQUEST'}->{'TO'}->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
+  $self->{'REQUEST'}->{'MID'}->appendTextNode("uuid:$UUID");
 
 
   $self->_SETRURI($args{"class"});
 
-  my $enumeration = $request->createElement("Enumerate");
+  my $enumeration = $self->{'REQUEST'}->{'DOC'}->createElement("Enumerate");
   $enumeration->setNamespace(URI_ENUM,"wsen",1);
-  $body->appendChild($enumeration);
+  $self->{'REQUEST'}->{'BODY'}->appendChild($enumeration);
 
   if (exists $args{"ns"}){
     $self->_SELECTORSET({__cimnamepace => $args{"ns"}});
   }
 
   if ( exists $args{"optimized"}){
-    my $optimize_enum = $request->createElement("OptimizeEnumeration");
+    my $optimize_enum = $self->{'REQUEST'}->{'DOC'}->createElement("OptimizeEnumeration");
     $optimize_enum->setNamespace(URI_WSMAN1,"wsman",1);
     $enumeration->appendChild($optimize_enum);
   }
   if ( exists $args{"maxelements"}){
-    my $max_elements = $request->createElement("MaxElements");
+    my $max_elements = $self->{'REQUEST'}->{'DOC'}->createElement("MaxElements");
     $max_elements->setNamespace(URI_WSMAN1,"wsman",1);
     $max_elements->appendTextNode($args{"maxelements"});
     $enumeration->appendChild($max_elements);
   }
   
   if ( exists $args{"eprmode"}){
-    my $epr_mode = $request->createElement("EnumerationMode");
+    my $epr_mode = $self->{'REQUEST'}->{'DOC'}->createElement("EnumerationMode");
     $epr_mode->setNamespace(URI_WSMAN1,"wsman",1);
     $epr_mode->appendTextNode("EnumerateEPR");
     $enumeration->appendChild($epr_mode);
@@ -251,19 +259,19 @@ sub enumerate{
   }
   
   if (exists $args{"Filter"}){
-    my $Filter = $request->createElement("Filter");
+    my $Filter = $self->{'REQUEST'}->{'DOC'}->createElement("Filter");
     $Filter->setNamespace(URI_WSMAN1,"wsman",1);
-    $Filter->setAttribute("Dialect", URI_FILTER);
+    $Filter->setAttribute("Dialect", &URI_FILTER);
     $Filter->appendTextNode($args{"Filter"});
     $enumeration->appendChild($Filter);  
   }
-  $request->setDocumentElement($envelope);
+  $self->{'REQUEST'}->{'DOC'}->setDocumentElement($self->{'REQUEST'}->{'ENVELOPE'});
   
-  print $request->toString(2);
+  print $self->{'REQUEST'}->{'DOC'}->toString(2);
 
-  #return $self->_CONNECT($request->toString(2));
+  #return $self->_CONNECT($self->{'REQUEST'}->{'DOC'}->toString(2));
 }
-=cut
+
 
 ###WSMAN GET###
 =pod
@@ -279,19 +287,19 @@ sub get{
   }
 # TODO: Werte mit defaults initialisieren.
 
-  $envelope->setNamespace(URI_ENUM,"wsen",0);
-  $action->appendTextNode(URI_GET);
-  $to->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
-  $MessageID->appendTextNode("uuid:$UUID");
+  $self->{'REQUEST'}->{'ENVELOPE'}->setNamespace(URI_ENUM,"wsen",0);
+  $self->{'REQUEST'}->{'ACTION'}->appendTextNode(URI_GET);
+  $self->{'REQUEST'}->{'TO'}->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
+  $self->{'REQUEST'}->{'MID'}->appendTextNode("uuid:$UUID");
 
   $self->WSMAN::Simple::Generic::_SETRURI($args{"class"});
   $self->WSMAN::Simple::Generic::_SELECTORSET($args{"SelectorSet"});
 
-  $request->setDocumentElement($envelope);
+  $self->{'REQUEST'}->{'DOC'}->setDocumentElement($self->{'REQUEST'}->{'ENVELOPE'});
 
-  print $request->toString(2);
+  print $self->{'REQUEST'}->{'DOC'}->toString(2);
   
-  #return $self->_CONNECT($request->toString(2));
+  #return $self->_CONNECT($self->{'REQUEST'}->{'DOC'}->toString(2));
 }
 =cut
 ###WSMAN Invoke###
@@ -309,38 +317,38 @@ sub invoke{
 # TODO: Werte mit defaults initialisieren.
   $self->_SETRURI($args->{"class"});  
 
-  $envelope->setNamespace(URI_ENUM,"wsen",0);
-  $action->appendTextNode("@{['DCIM']}$args->{'InvokeClass'}");
-  $to->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
-  $MessageID->appendTextNode("uuid:$UUID");
+  $self->{'REQUEST'}->{'ENVELOPE'}->setNamespace(URI_ENUM,"wsen",0);
+  $self->{'REQUEST'}->{'ACTION'}->appendTextNode("@{['DCIM']}$args->{'InvokeClass'}");
+  $self->{'REQUEST'}->{'TO'}->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
+  $self->{'REQUEST'}->{'MID'}->appendTextNode("uuid:$UUID");
 
   $self->_SELECTORSET($args->{"SelectorSet"});
 
-  my $invoke = $request->createElement("$args->{'InvokeClass'}_INPUT");
+  my $invoke = $self->{'REQUEST'}->{'DOC'}->createElement("$args->{'InvokeClass'}_INPUT");
   $invoke->setNamespace(URI_DCIM, "p", 1);
-  $body->appendChild($invoke);
+  $self->{'REQUEST'}->{'BODY'}->appendChild($invoke);
   
   my %Invoke_Input = $args->{"Invoke_Input"};
   while ( my ($k,$v) = each %Invoke_Input ) {
-    my $invoke_input = $request->createElement("$k");
+    my $invoke_input = $self->{'REQUEST'}->{'DOC'}->createElement("$k");
     $invoke_input->setNamespace(URI_DCIM, "p", 1);
     $invoke_input->appendTextNode($v);
     $invoke->appendChild($invoke_input);
     }
   
   if (exists $args->{"Filter"}){
-    my $Filter = $request->createElement("Filter");
+    my $Filter = $self->{'REQUEST'}->{'DOC'}->createElement("Filter");
     $Filter->setNamespace(URI_WSMAN1,"wsman",1);
     $Filter->setAttribute("Dialect", URI_FILTER);
     $Filter->appendTextNode($args->{"Filter"});
-    $body->appendChild($Filter);  
+    $self->{'REQUEST'}->{'BODY'}->appendChild($Filter);  
   }
 
-  $request->setDocumentElement($envelope);
+  $self->{'REQUEST'}->{'DOC'}->setDocumentElement($self->{'REQUEST'}->{'ENVELOPE'});
   
-  print $request->toString(2);
+  print $self->{'REQUEST'}->{'DOC'}->toString(2);
 
-  #return $self->_CONNECT($request->toString(2));
+  #return $self->_CONNECT($self->{'REQUEST'}->{'DOC'}->toString(2));
 }
 =cut
 
@@ -349,7 +357,6 @@ sub invoke{
 sub _BUILD_MESSAGE{
   
 my ($self) = @_;
-print Dumper(@_);
 $self->{'REQUEST'}->{'DOC'} = XML::LibXML::Document->new('1.0','UTF-8');
 
 ###Statischer Envelope###
@@ -406,9 +413,16 @@ $self->{'REQUEST'}->{'RPLTO'}->appendChild($self->{'REQUEST'}->{'ADDR'});
 $self->{'REQUEST'}->{'ADDR'}->setNamespace(URI_ADDR, "wsa", 1);
 $self->{'REQUEST'}->{'ADDR'}->appendTextNode('http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous');
 
-print Dumper($self);
-
-print $self->{'REQUEST'}->{'DOC'}->toString() unless $self->{'verbose'} == 0;
+#print Dumper($self);
+=pod
+if ($self->{'verbose'} == 1){
+  print "\n\n";
+  print $self->{'REQUEST'}->{'DOC'}->toString();
+  print  $self->{'REQUEST'}->{'ENVELOPE'}->toString();
+  print "\n\n";
+}
+=cut
+return $self;
 }
 
 ###privat Method for Selector-Sets###

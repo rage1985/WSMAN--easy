@@ -45,133 +45,110 @@ SUCH DAMAGES.
 
 =cut
 
-# TODO: Bessere Methode zum einbinden der Konstanten finden.
+
 
 use strict;
 use warnings;
-
+no warnings 'once';
 use Data::UUID;
-use MIME::Base64;
 use Exporter;
-use Data::Dumper; 
 use Carp;
 use XML::LibXML;
-use XML::Simple; 
 use LWP::UserAgent;
+use Net::SSL ();
+
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
+
 
 $VERSION     = 1.02;
 @ISA         = qw(Exporter);
 @EXPORT      = ();
-@EXPORT_OK   = qw(new identify enumerate get invoke);
+@EXPORT_OK   = qw(session identify enumerate get invoke URI_SOAP URI_ADDR URI_WSMAN1 URI_CIMBIND URI_WSMID URI_ENUM URI_GET URI_PUT URI_FAULT URI_DCIM URI_CIM URI_WMI URI_WMICIMV2
+URI_CIMV2 URI_WINRM URI_WSMAN URI_SHELL URI_WIN32 URI_VMWAREURI_ASSOCFI URI_FILTER );
+
+%EXPORT_TAGS = (
+		namespaces => [qw(
+					@{[URI_SOAP]}
+					URI_ADDR
+					URI_WSMAN1
+					URI_CIMBIND
+					URI_WSMID
+				)],
+		action => [qw(
+					URI_ENUM
+					URI_GET
+					URI_PUT
+					URI_FAULT
+				)],
+		oem => [qw(
+					URI_DCIM
+					URI_CIM
+					URI_WMI
+					URI_WMICIMV2
+					URI_CIMV2
+					URI_WINRM
+					URI_WSMAN1
+					URI_SHELL
+					URI_WIN32
+					URI_VMWARE
+					URI_OMC
+				)],
+		dialect => [qw(
+					URI_ASSOCFI
+					URI_FILTER
+				)]
+		);
 
 
-### Methoden einbinden###
-my $xml = new XML::Simple;
-my $ug   = new Data::UUID;
+BEGIN {
+ $Net::HTTPS::SSL_SOCKET_CLASS = "Net::SSL"; # Force use of Net::SSL
+ $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+#$ENV{HTTPS_DEBUG} = 3;
+#$ENV{PERL_LWP_SSL_VERIFY_PEER} = 0;
+}
 
-###Globale XML Namespaces###
-my %Namespaces = (
-    "SOAP" => "http://www.w3.org/2003/05/soap-envelope", 
-    "ADDR" =>"http://schemas.xmlsoap.org/ws/2004/08/addressing", 
-    "WSMAN" => "http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd",
-    "CIMBIND" => "http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd",
-    "WSMID" => "http://schemas.dmtf.org/wbem/wsman/identity/1/wsmanidentity.xsd");
+###Global XML Namespaces###
+use constant URI_SOAP 		=>	"http://www.w3.org/2003/05/soap-envelope"; 
+use constant URI_ADDR 		=>	"http://schemas.xmlsoap.org/ws/2004/08/addressing";
+use constant URI_WSMAN1		=> 	"http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd";
+use constant URI_CIMBIND 	=> 	"http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd";
+use constant URI_WSMID 		=> 	"http://schemas.dmtf.org/wbem/wsman/identity/1/wsmanidentity.xsd";
 
-###Globale Action Namespaces###  
-my %Actions = ( 
-  "ENUM" => "http://schemas.xmlsoap.org/ws/2004/09/enumeration", 
-  "GET" => "http://schemas.xmlsoap.org/ws/2004/09/transfer/Get", 
-  "PUT" => "http://schemas.xmlsoap.org/ws/2004/09/transfer/Put",
-  "FAULT" => "http://schemas.xmlsoap.org/ws/2004/08/addressing/fault");
+###Global Action Namespaces###  
+use constant  URI_ENUM 		=> 	"http://schemas.xmlsoap.org/ws/2004/09/enumeration"; 
+use constant  URI_GET 		=> 	"http://schemas.xmlsoap.org/ws/2004/09/transfer/Get"; 
+use constant  URI_PUT 		=> 	"http://schemas.xmlsoap.org/ws/2004/09/transfer/Put";
+use constant  URI_FAULT 	=> 	"http://schemas.xmlsoap.org/ws/2004/08/addressing/fault";
 
 ###OEM Resource URI´s###
-my %RURIs = (
-  "DCIM" 	=> "http://schemas.dell.com/wbem/wscim/1/cim-schema/2/",
-  "CIM"  	=> "http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/",
-  "WMI"  	=> "http://schemas.microsoft.com/wbem/wsman/1/wmi",
-  "WMICIMV2"  	=> "http://schema.omc-project.org/wbem/wscim/1/cim-schema/2/",
-  "CIMV2"  	=> "http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2",
-  "WINRM"  	=> "http://schemas.microsoft.com/wbem/wsman/1",
-  "WSMAN"  	=> "http://schemas.microsoft.com/wbem/wsman/1",
-  "SHELL"  	=> "http://schemas.microsoft.com/wbem/wsman/1/windows/shell",
-  "WIN32"       => "http://schemas.microsoft.com/wbem/wsman/1/wmi/root/cimv2/",
-  "VMware" 	=> "http://schemas.vmware.com/wbem/wscim/1/cim-schema/2/");
+use constant  URI_DCIM 		=> 	"http://schemas.dell.com/wbem/wscim/1/cim-schema/2/";
+use constant  URI_CIM 		=> 	"http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2/";
+use constant  URI_WMI  		=> 	"http://schemas.microsoft.com/wbem/wsman/1/wmi";
+use constant  URI_WMICIMV2  	=> 	"http://schema.omc-project.org/wbem/wscim/1/cim-schema/2/";
+use constant  URI_CIMV2  	=> 	"http://schemas.dmtf.org/wbem/wscim/1/cim-schema/2";
+use constant  URI_WINRM  	=> 	"http://schemas.microsoft.com/wbem/wsman/1";
+use constant  URI_WSMAN  	=> 	"http://schemas.microsoft.com/wbem/wsman/1";
+use constant  URI_SHELL  	=> 	"http://schemas.microsoft.com/wbem/wsman/1/windows/shell";
+use constant  URI_WIN32     	=> 	"http://schemas.microsoft.com/wbem/wsman/1/wmi/root/cimv2/";
+use constant  URI_VMWARE	=> 	"http://schemas.vmware.com/wbem/wscim/1/cim-schema/2/";
+use constant URI_OMC 		=>	"http://schema.omc-project.org/wbem/wscim/1/cim-schema/2/";
 
 ###Static Dialect URI´s###
 
-my %Dialect = (
-  "ASSOCFI" => "http://schemas.dmtf.org/wbem/wsman/1/cimbinding/associationFilter",
-  "FILTER"  => "http://schemas.dmtf.org/wbem/cql/1/dsp0202.pdf");
+use constant  ASSOCFI 		=> 	"http://schemas.dmtf.org/wbem/wsman/1/cimbinding/associationFilter";
+use constant  FILTER  		=> 	"http://schemas.dmtf.org/wbem/cql/1/dsp0202.pdf";
 
-###XML erzeugen###
-my $request = XML::LibXML::Document->new('1.0','UTF-8');
+my $selectorset;
 
-###Statischer Envelope###
-
-my $envelope = $request->createElement("Envelope");
-$envelope->setNamespace($Namespaces{"SOAP"} ,"s",1);
-$envelope->setNamespace($Namespaces{"ADDR"}, "wsa", 0);
-$envelope->setNamespace($Namespaces{"WSMAN"},"wsman",0);
-
-###Statischer Header###
-
-my $header = $request->createElement("Header");
-$header->setNamespace($Namespaces{"SOAP"} ,"s",1);
-$envelope->appendChild($header);
-
-
-
-my $action = $request->createElement("Action");
-my $to = $request->createElement("To");
-my $ResourceURI = $request->createElement("ResourceURI");
-my $MessageID = $request->createElement("MessageID");
-my $ReplyTo = $request->createElement("ReplyTo");
-my $selectorset; ### Muss hier deklariert werden damit sub close auf die Node-Referenz zugreifen kann 
-$header->appendChild($action);
-$header->appendChild($to);
-$header->appendChild($ResourceURI);
-$header->appendChild($MessageID);
-$header->appendChild($ReplyTo);
-
-###Statischer Body###
-
-my $body = $request->createElement("Body");
-$body->setNamespace($Namespaces{"SOAP"} ,"s",1);
-$envelope->appendChild($body);
-
-###Statische Aktion###
-
-$action->setAttributeNS($Namespaces{"SOAP"},"mustUnderstand", "true");
-$action->setNamespace($Namespaces{"ADDR"}, "wsa", 1);
-
-###Statisches TO###
-
-$to->setAttributeNS($Namespaces{"SOAP"},"mustUnderstand", "true");
-$to->setNamespace($Namespaces{"ADDR"}, "wsa", 1);
-
-###Statisches zur MessageID###
-
-$MessageID->setAttributeNS($Namespaces{"SOAP"},"mustUnderstand", "true");
-$MessageID->setNamespace($Namespaces{"ADDR"}, "wsa", 1);
-
-###Statisches ReplayTo Feld###
-
-$ReplyTo->setNamespace($Namespaces{"ADDR"}, "wsa", 1);
-my $address = $request->createElement("Address");
-$ReplyTo->appendChild($address);
-$address->setNamespace($Namespaces{"ADDR"}, "wsa", 1);
-$address->appendTextNode('http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous');
-
-###Konstruktor WSMAN###
+###HTTP/HTTPS SOAP Session Constructor###
 sub session {
   my $class = shift; 
   my %args  = @_;
  
   if ( !$args{"host"} || !$args{"port"} || !$args{"user"} || !$args{"passwd"} || !$args{"urlpath"}){
-    croak "Parameter fehlt!"
+    croak "parameter missing!  host, port, user, passwd and urlpath are mandatory"
   }
-
+  my $doc = XML::LibXML::Document->new('1.0','UTF-8');
   my $self = bless {
     host	=>	$args{"host"},
     port	=>	$args{"port"},
@@ -179,7 +156,12 @@ sub session {
     passwd	=>	$args{"passwd"},
     urlpath	=>	$args{"urlpath"},
     proto	=>	$args{"proto"},
-    verbose	=>	$args{"verbose"}
+    verbose	=>	$args{"verbose"},
+    ssl_host	=>	$args{"ssl_verify_host"},
+    timeout  =>   $args{"timeout"} ,
+    _doc	=>	$doc
+    
+   
   }, $class;
 # TODO: Werte mit defaults initialisieren.
   return $self;
@@ -190,26 +172,34 @@ sub identify{
   
   my $self = shift;
 
-  my $identify = XML::LibXML::Document->new('1.0');
-  my $ident_envelope = $request->createElement("Envelope");
-  $ident_envelope->setNamespace($Namespaces{"SOAP"} ,"s",1);
-  $ident_envelope->setNamespace($Namespaces{"WSMID"}, "wsmid",0);
+  my $message = $self->_BUILD_MESSAGE();
 
-  my $ident_header = $request->createElement("Header");
-  $ident_header->setNamespace($Namespaces{"SOAP"} ,"s",1);
+  my $identify = XML::LibXML::Document->new('1.0');
+  my $ident_envelope = $self->{'_doc'}->createElement("Envelope");
+  $ident_envelope->setNamespace(@{[URI_SOAP]} ,"s",1);
+  $ident_envelope->setNamespace(@{[URI_WSMID]}, "wsmid",0);
+
+  my $ident_header = $self->{'_doc'}->createElement("Header");
+  $ident_header->setNamespace(@{[URI_SOAP]} ,"s",1);
   $ident_envelope->appendChild($ident_header);
-  $ident_envelope->appendChild($body);
+  $ident_envelope->appendChild($message->{'BODY'});
 
   my $ident = $identify->createElement("Identify");
-  $ident->setNamespace($Namespaces{"WSMID"}, "wsmid",1);
-  $body->appendChild($ident);
+  $ident->setNamespace(@{[URI_WSMID]}, "wsmid",1);
+  $message->{'BODY'}->appendChild($ident);
   
   $identify->setDocumentElement($ident_envelope);
-
-  #print $identify->toString(2);
   
-  #$self->_CONNECT($identify->toString(2));
-  $self->_CONNECT2($identify->toString(2));
+  my $request = $self->{'_doc'}->toString(2);
+
+  if ($self->{'verbose'} == 1){
+    print "GENERATED SOAP REQUEST: \n";
+    print "-------------------------------------------------------------------------------------------------------\n"; 
+    print $request;
+    print "\n";
+  }
+  $self->_CONNECT($identify->toString(2));
+  
 
 }
 
@@ -220,62 +210,77 @@ sub enumerate{
   my %args = @_;
   my $ug   = new Data::UUID;
   my $UUID = $ug->create_str(); ###Neue UUID für jeden Vorgang
+ 
+  my $message = $self->_BUILD_MESSAGE();
   
   if ( !$args{"class"}){
-    croak "Class fehlt!"
+    croak 'ENUMERATE ERROR no class submitted to enumerate method'
   }
-# TODO: Werte mit defaults initialisieren. 
-  $envelope->setNamespace($Actions{"ENUM"},"wsen",0);
-  $action->appendTextNode("$Actions{'ENUM'}/Enumerate");
-  $to->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
-  $MessageID->appendTextNode("uuid:$UUID");
+   
+  $message->{'ENV'}->setNamespace(@{[URI_ENUM]},"wsen",0);
+  $message->{'ACTION'}->appendTextNode("@{[URI_ENUM]}/Enumerate");
+  $message->{'TO'}->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
+  $message->{'MID'}->appendTextNode("uuid:$UUID");
 
+  my $ruri = $message->{'RURI'};
+  my $ruritxt = $self->_SETRURI($args{"class"});
+  $ruri->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $ruri->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+  $ruri->removeChildNodes();
+  $ruri->appendTextNode($ruritxt);
 
-  $self->_SETRURI($args{"class"});
-
-  my $enumeration = $request->createElement("Enumerate");
-  $enumeration->setNamespace($Actions{"ENUM"},"wsen",1);
-  $body->appendChild($enumeration);
+  my $enumeration = $self->{'_doc'}->createElement("Enumerate");
+  $enumeration->setNamespace(@{[URI_ENUM]},"wsen",1);
+  $message->{'BODY'}->appendChild($enumeration);
 
   if (exists $args{"ns"}){
-    $self->_SELECTORSET({__cimnamepace => $args{"ns"}});
+    my $ns = $self->_SELECTORSET({__cimnamepace => $args{'ns'}});
+    $message->{'HEAD'}->appendChild($ns);
   }
 
   if ( exists $args{"optimized"}){
-    my $optimize_enum = $request->createElement("OptimizeEnumeration");
-    $optimize_enum->setNamespace($Namespaces{"WSMAN"},"wsman",1);
+    my $optimize_enum = $self->{'_doc'}->createElement("OptimizeEnumeration");
+    $optimize_enum->setNamespace(@{[URI_WSMAN1]},"wsman",1);
     $enumeration->appendChild($optimize_enum);
   }
   if ( exists $args{"maxelements"}){
-    my $max_elements = $request->createElement("MaxElements");
-    $max_elements->setNamespace($Namespaces{"WSMAN"},"wsman",1);
+    my $max_elements = $self->{'_doc'}->createElement("MaxElements");
+    $max_elements->setNamespace(@{[URI_WSMAN1]},"wsman",1);
     $max_elements->appendTextNode($args{"maxelements"});
     $enumeration->appendChild($max_elements);
   }
   
   if ( exists $args{"eprmode"}){
-    my $epr_mode = $request->createElement("EnumerationMode");
-    $epr_mode->setNamespace($Namespaces{"WSMAN"},"wsman",1);
+    my $epr_mode = $self->{'_doc'}->createElement("EnumerationMode");
+    $epr_mode->setNamespace(@{[URI_WSMAN1]},"wsman",1);
     $epr_mode->appendTextNode("EnumerateEPR");
     $enumeration->appendChild($epr_mode);
   }
   
   if (exists $args{"SelectorSet"}){
-    $self->_SELECTORSET($args{"SelectorSet"});
+    my $selset = $self->_SELECTORSET($args{"SelectorSet"});
+    $message->{'HEAD'}->appendChild($selset);
   }
   
   if (exists $args{"Filter"}){
-    my $Filter = $request->createElement("Filter");
-    $Filter->setNamespace($Namespaces{"WSMAN"},"wsman",1);
-    $Filter->setAttribute("Dialect", $Dialect{"FILTER"});
+    my $Filter = $self->{'_doc'}->createElement("Filter");
+    $Filter->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+    $Filter->setAttribute("Dialect", @{[FILTER]});
     $Filter->appendTextNode($args{"Filter"});
     $enumeration->appendChild($Filter);  
   }
-  $request->setDocumentElement($envelope);
+  $self->{'_doc'}->setDocumentElement($message->{'ENV'});
   
-  #print $request->toString(2);
+  my $request = $self->{'_doc'}->toString(2);
+  
+if ($self->{'verbose'} == 1){
+    print "GENERATED SOAP REQUEST: \n";
+    print "-------------------------------------------------------------------------------------------------------\n"; 
+    print $request;
+    print "\n";
+  }
 
-  return $self->_CONNECT($request->toString(2));
+  return $self->_CONNECT($request);
 }
 
 ###WSMAN GET###
@@ -283,300 +288,368 @@ sub get{
 
   my $self = shift;
   my %args = @_;
+  my $message = $self->_BUILD_MESSAGE();
   my $ug   = new Data::UUID;
   my $UUID = $ug->create_str(); ###Neue UUID für jeden Vorgang
   
   if ( !$args{"class"}){
-    croak "Class fehlt!"
+    croak "GET ERROR no class submitted to get method"
   }
 # TODO: Werte mit defaults initialisieren.
 
-  $envelope->setNamespace($Actions{"ENUM"},"wsen",0);
-  $action->appendTextNode($Actions{"GET"});
-  $to->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
-  $MessageID->appendTextNode("uuid:$UUID");
+  $message->{'ENV'}->setNamespace(@{[URI_ENUM]},"wsen",0);
+  $message->{'ACTION'}->appendTextNode(@{[URI_GET]});
+  $message->{'TO'}->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
+  $message->{'MID'}->appendTextNode("uuid:$UUID");
 
-  $self->_SETRURI($args{"class"});
-  $self->_SELECTORSET($args{"SelectorSet"});
+  my $ruri = $message->{'RURI'};
+  my $ruritxt = $self->_SETRURI($args{"class"});
+  $ruri->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $ruri->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+  $ruri->removeChildNodes();
+  $ruri->appendTextNode($ruritxt);
+  my $selset = $self->_SELECTORSET($args{"SelectorSet"});
+  $message->{'HEAD'}->appendChild($selset);
 
-  $request->setDocumentElement($envelope);
+  if (exists $args{"ns"}){
+    my $ns = $self->_SELECTORSET( {__cimnamepace => $args{'ns'}});
+    $message->{'HEAD'}->appendChild($ns);
+  }
 
-  #print $request->toString(2);
+  $self->{'_doc'}->setDocumentElement($message->{'ENV'});
+
+ my $request = $self->{'_doc'}->toString(2);
+
+    if ($self->{'verbose'} == 1){
+    print "GENERATED SOAP REQUEST: \n";
+    print "-------------------------------------------------------------------------------------------------------\n"; 
+    print $request;
+    print "\n";
+  }
   
-  return $self->_CONNECT($request->toString(2));
+  return $self->_CONNECT($self->{'_doc'}->toString(2));
 }
 
 ###WSMAN Invoke###
 sub invoke{
 
   my $self = shift;
-  my $args = @_;
+  my %args = @_;
+  my $message = $self->_BUILD_MESSAGE();
   my $ug   = new Data::UUID;
   my $UUID = $ug->create_str(); ###Neue UUID für jeden Vorgang
 
-  if ( !$args->{"class"}){
-    croak "Klasse fehlt!"
+  if ( !$args{"class"}){
+    croak "INVOKE ERROR no class submitted to invoke method"
   }
-# TODO: Werte mit defaults initialisieren.
-  $self->_SETRURI($args->{"class"});  
 
-  $envelope->setNamespace($Actions{"ENUM"},"wsen",0);
-  $action->appendTextNode("$RURIs{'DCIM'}/$args->{'InvokeClass'}");
-  $to->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
-  $MessageID->appendTextNode("uuid:$UUID");
+  $message->{'RURI'}->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $message->{'RURI'}->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+  $message->{'RURI'}->removeChildNodes();
 
-  $self->_SELECTORSET($args->{"SelectorSet"});
+  my $ruri = $message->{'RURI'};
+  my $ruritxt = $self->_SETRURI($args{"InvokeClass"});
+  $ruri->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $ruri->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+  $ruri->removeChildNodes();
+  $ruri->appendTextNode($ruritxt);  
 
-  my $invoke = $request->createElement("$args->{'InvokeClass'}_INPUT");
-  $invoke->setNamespace("$RURIs{'DCIM'}", "p", 1);
-  $body->appendChild($invoke);
+  $message->{'ENV'}->setNamespace(@{[URI_ENUM]},"wsen",0);
+  $message->{'ACTION'}->appendTextNode("@{[URI_DCIM]}/$args{'InvokeClass'}");
+  $message->{'TO'}->appendTextNode("$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}");
+  $message->{'MID'}->appendTextNode("uuid:$UUID");
+
+  my $selset = $self->_SELECTORSET($args{"SelectorSet"});
+  $message->{'BODY'}->appendChild($selset);
+
+  if (exists $args{"ns"}){
+    my $ns = $self->_SELECTORSET( {__cimnamepace => $args{'ns'}});
+    $message->{'BODY'}->appendChild($ns);
+  }
+
+  my $invoke = $self->{'_doc'}->createElement("$args{'InvokeClass'}_INPUT");
+  $invoke->setNamespace("@{[URI_DCIM]}", "p", 1);
+  $message->{'BODY'}->appendChild($invoke);
   
-  my %Invoke_Input = $args->{"Invoke_Input"};
+  my %Invoke_Input = $args{"Invoke_Input"};
   while ( my ($k,$v) = each %Invoke_Input ) {
-    my $invoke_input = $request->createElement("$k");
-    $invoke_input->setNamespace("$RURIs{'DCIM'}", "p", 1);
+    my $invoke_input = $self->{'_doc'}->createElement("$k");
+    $invoke_input->setNamespace("@{[URI_DCIM]}", "p", 1);
     $invoke_input->appendTextNode($v);
     $invoke->appendChild($invoke_input);
     }
   
-  if (exists $args->{"Filter"}){
-    my $Filter = $request->createElement("Filter");
-    $Filter->setNamespace($Namespaces{"WSMAN"},"wsman",1);
-    $Filter->setAttribute("Dialect", $Dialect{"FILTER"});
-    $Filter->appendTextNode($args->{"Filter"});
-    $body->appendChild($Filter);  
+  if (exists $args{"Filter"}){
+    my $Filter = $self->{'_doc'}->createElement("Filter");
+    $Filter->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+    $Filter->setAttribute("Dialect", @{[FILTER]});
+    $Filter->appendTextNode($args{"Filter"});
+    $message->{'BODY'}->appendChild($Filter);  
   }
 
-  $request->setDocumentElement($envelope);
-  
-  #print $request->toString(2);
+my $request = $self->{'_doc'}->toString(2);
 
-  return $self->_CONNECT($request->toString(2));
+    if ($self->{'verbose'} == 1){
+    print "GENERATED SOAP REQUEST: \n";
+    print "-------------------------------------------------------------------------------------------------------\n"; 
+    print $request;
+    print "\n";
+  }
+
+  return $self->_CONNECT($self->{'_doc'}->toString(2));
 }
+###Method to Build the std SOAP Request Envelope###
+sub _BUILD_MESSAGE{
+  
+  my $self = shift;
+  my $doc = $self->{'_doc'};
 
+  ###Statischer Envelope###
+
+  my $envelope = $doc->createElement("Envelope");
+  $envelope->setNamespace(@{[URI_SOAP]} ,"s",1);
+  $envelope->setNamespace(@{[URI_ADDR]}, "wsa", 0);
+  $envelope->setNamespace(@{[URI_WSMAN1]},"wsman",0);
+
+  ###Statischer Header###
+
+  my $header = $doc->createElement("Header");
+  $header->setNamespace(@{[URI_SOAP]} ,"s",1);
+  $envelope->appendChild($header);
+
+  my $action = $doc->createElement("Action");
+  my $to = $doc->createElement("To");
+  my $ruri= $doc->createElement("ResourceURI");
+  my $mid = $doc->createElement("MessageID");
+  my $rplto  = $doc->createElement("ReplyTo");
+
+  $header->appendChild($action);
+  $header->appendChild($to);
+  $header->appendChild($ruri);
+  $header->appendChild($mid);
+  $header->appendChild($rplto);
+
+  ###Statischer Body###
+
+  my $body= $doc->createElement("Body");
+  $body->setNamespace(@{[URI_SOAP]} ,"s",1);
+  $envelope->appendChild($body);
+
+  ###Statische Aktion###
+
+  $action->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $action->setNamespace(@{[URI_ADDR]}, "wsa", 1);
+
+  ###Statisches TO###
+
+  $to->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $to->setNamespace(@{[URI_ADDR]}, "wsa", 1);
+
+  ###Statisches zur MessageID###
+
+  $mid->setAttributeNS(@{[URI_SOAP]},"mustUnderstand", "true");
+  $mid->setNamespace(@{[URI_ADDR]}, "wsa", 1);
+
+  ###Statisches ReplayTo Feld###
+
+  $rplto->setNamespace(@{[URI_ADDR]}, "wsa", 1);
+  my $addr = $doc->createElement("Address");
+  $rplto->appendChild($addr);
+  $addr->setNamespace(@{[URI_ADDR]}, "wsa", 1);
+  $addr->appendTextNode('http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous');
+
+  
+  return { DOC => $doc, ENV => $envelope, HEAD => $header ,ACTION => $action, TO => $to, RURI => $ruri, MID => $mid, RPLTO => $rplto, BODY => $body, ADDR => $addr}; 
+}
 ###privat Method for Selector-Sets###
 sub _SELECTORSET{
 
   my $self = shift;
   my $args = $_[0];
+  my $message = $self->_BUILD_MESSAGE();
+  
+  
   	
-  $selectorset = $request->createElement("SelectorSet");
-  $selectorset->setNamespace($Namespaces{"WSMAN"},"wsman",1);
-  while ( my ($k,$v) = each %$args ) {
-    my $selector = $request->createElement("Selector");
-    $selector->setAttribute('Name', $k);
-    $selector->setNamespace($Namespaces{"WSMAN"},"wsman",1);
-    $selector->appendTextNode($v);
-    $selectorset->appendChild($selector);
+  $selectorset = $self->{'_doc'}->createElement("SelectorSet");
+  $selectorset->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+  while ( my ($k,$v) = each %{$args} ) {
+     my $selector = $self->{'_doc'}->createElement("Selector");
+     $selector->setAttribute('Name', $k);
+     $selector->setNamespace(@{[URI_WSMAN1]},"wsman",1);
+     $selector->appendTextNode($v);
+     $selectorset->appendChild($selector);
   }
-  $header->appendChild($selectorset);
-
+ 
+  return $selectorset;
    
 }
-# TODO: Abgewandelte Methode für das setzen von Namespaces erstellen, dabei Racing-Condition vermeiden.
-
 ###privat Method for Class URI generation###
 sub _SETRURI{
 
   my $self = shift;
   my @args = @_;
-  
+  my $message = $self->_BUILD_MESSAGE();
 
-  my @RURIP = split /_/, $args[0]; # Komfortfunktion: Bildet RURI aus der Endpoint Reference.
-  $ResourceURI->setAttributeNS($Namespaces{"SOAP"},"mustUnderstand", "true");
-  $ResourceURI->setNamespace($Namespaces{"WSMAN"},"wsman",1);
-  $ResourceURI->removeChildNodes();	
+  my @RURIP = split /_/, $args[0]; # Komfortfunktion: Bildet RURI aus der Endpoint Reference.	
   if ($RURIP[0] eq "CIM"){
-    $ResourceURI->appendTextNode("$RURIs{'CIM'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "DCIM"){
-      $ResourceURI->appendTextNode("$RURIs{'DCIM'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "OMC"){
-      $ResourceURI->appendTextNode("$RURIs{'OMC'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "VMware"){
-      $ResourceURI->appendTextNode("$RURIs{'VMware'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "WIN32"){
-      $ResourceURI->appendTextNode("$RURIs{'WIN32'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "WMI"){
-      $ResourceURI->appendTextNode("$RURIs{'WMI'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "WMICIMV2"){
-      $ResourceURI->appendTextNode("$RURIs{'WMICIMV2'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "CIMV2"){
-      $ResourceURI->appendTextNode("$RURIs{'CIMV2'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "WINRM"){
-      $ResourceURI->appendTextNode("$RURIs{'WINRM'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "WSMAN"){
-      $ResourceURI->appendTextNode("$RURIs{'WSMAN'}$args[0]");
-    }
-    elsif ($RURIP[0] eq "SHELL"){
-      $ResourceURI->appendTextNode("$RURIs{'SHELL'}$args[0]");
-    }
-    else{
-      croak "Fehler bei Klasse"}
+     return ("@{[URI_CIM]} $args[0]");
+  } elsif ($RURIP[0] eq "DCIM"){
+      return ("@{[URI_DCIM]}$args[0]");
+  } elsif ($RURIP[0] eq "OMC"){
+      return ("@{[URI_OMC]}$args[0]");
+  } elsif ($RURIP[0] eq "VMware"){
+      return ("@{[URI_VMWARE]}$args[0]");
+  } elsif ($RURIP[0] eq "WIN32"){
+      return ("@{[URI_WIN32]}$args[0]");
+  } elsif ($RURIP[0] eq "WMI"){
+      return ("@{[URI_WMI]}$args[0]");
+  } elsif ($RURIP[0] eq "WMICIMV2"){
+      return ("@{[URI_WMICIMV2]}$args[0]");
+  } elsif ($RURIP[0] eq "CIMV2"){
+      return ("@{[URI_CIMV2]}$args[0]");
+  } elsif ($RURIP[0] eq "WINRM"){
+      return ("@{[URI_WINRM]}$args[0]");
+  } elsif ($RURIP[0] eq "WSMAN"){
+      return ("@{[URI_WSMAN]}$args[0]");
+  } elsif ($RURIP[0] eq "SHELL"){
+      return ("@{[URI_SHELL]}$args[0]");
+  } else{
+      croak "Fehler bei Klasse"
+  }
 
     $args[0] = "";
-
 }
 
 
-###Private Connection Method###
-
-# sub _CONNECT{
-
-# my $self = shift;
-
-# my $curl = WWW::Curl::Easy->new;
-  # $curl->setopt( CURLOPT_VERBOSE, "$self->{'verbose'}");
-  # $curl->setopt( CURLOPT_SSL_VERIFYHOST, 0);
-  # $curl->setopt( CURLOPT_SSL_VERIFYPEER, 0);
-  # $curl->setopt( CURLOPT_URL,            "$self->{'proto'}://$self->{'host'}/$self->{'urlpath'}");
-  # $curl->setopt( CURLOPT_USERPWD,        "$self->{'user'}:$self->{'passwd'}");
-  # $curl->setopt( CURLOPT_FOLLOWLOCATION, 1);
-  
-# $curl->setopt( CURLOPT_PORT,		,$self->{"port"});
-  # $curl->setopt( CURLOPT_HEADER(),	0		);
-  # $curl->setopt( CURLOPT_HTTPHEADER(), ['Content-Type: application/soap+xml;charset=UTF-8']);
-
-# my $response_body;
-  # $curl->setopt( CURLOPT_POST,       1 );
-  # $curl->setopt( CURLOPT_TIMEOUT,    120 );
-  # $curl->setopt( CURLOPT_POSTFIELDS, $_[0] );
-  # $curl->setopt( CURLOPT_WRITEDATA,  \$response_body );
-
-  # my $retcode = $curl->perform;
-
-  # if ( $retcode == 0 ) {
-    
-    #print $response_body;
-
-
-    # my $data = $xml->XMLin($response_body); # TODO: Serializer von XML::LibXML nutzen. Dann kann XML::Simple raus.
- 
-    # if (exists $data->{'s:Header'}->{'wsa:Action'}){
-      # if ($data->{'s:Header'}->{'wsa:Action'} eq 'http://schemas.dmtf.org/wbem/wsman/1/wsman/fault' || $data->{'s:Header'}->{'wsa:Action'} eq 'http://schemas.xmlsoap.org/ws/2004/08/addressing/fault'){
-        # croak "WSMAN FAULT: ", $data->{'s:Body'}->{'s:Fault'}->{'s:Reason'}->{'s:Text'}->{'content'}; # TODO: exeption handling prüfen -> werden alle WSMan errors abgefangen ?
-      # }
-
-        # else{
-          # return $data;
-        # }
-    # }
-    # else{
-      # return $data;
-    # }
-  # }
-  # else {
-
-    # HTTP Error code, type of error, error message
-    # croak ("Code:$retcode " . $curl->strerror($retcode) . " " . $curl->errbuf . "\n") ;
-
-  # }
-# }
-
+###private Connection Method###
 sub _CONNECT{
 
   my $self = shift;
+ 
 
   my $ua = new LWP::UserAgent;
   $ua->credentials("$self->{'host'}/$self->{'urlpath'}", "$self->{'urlpath'}" );
-  #$ua->ssl_opts( verify_hostname => 0, verify_peer => 0 );
+ #$ua->ssl_opts( verify_hostname => 0, verify_peer => 0 ); # Muss noch mit libcrypt::ssleay getestet werden
+ #system("export PERL_LWP_SSL_VERIFY_HOSTNAME=0");
+  $ua->timeout($self->{'timeout'});
 
   my $req = new HTTP::Request 'POST',"$self->{'proto'}://$self->{'host'}:$self->{'port'}/$self->{'urlpath'}";
-  #print $req;
   $req->content_type('application/soap+xml;charset=UTF-8');
   $req->authorization_basic($self->{'user'}, $self->{'passwd'});
-  $req->content($_[0]);
-
-  my $res = $ua->request($req);
-  #print $res->as_string;
-  my $result = $res->content();
-  print $result;
   
-  return $result;
+  if ($self->{'verbose'}){
+    print $req->as_string;
+  }
 
+  if ( !defined $_[0] ){
+    croak "CONNECTION ERROR failed to hand request object to connection method"
+  } 
+
+
+  $req->content($_[0]);
+  my $res = $ua->request($req);
+  my $result = $res->content();
+  if ($res->is_success){
+    return $result;
+    if ($self->{'verbose'}){
+      print $res->as_string;
+    }
+  } else{
+      if ($self->{'verbose'}){
+        print $res->as_string;
+      }
+       if ($result =~ /^\</){
+        my $wsmanerror = $self->to_list($result, "s:Fault");
+        croak "ERROR WSMan FAULT Object returned: \n", $wsmanerror;
+      } else{
+        croak "HTTP ERROR: ", $res->status_line();
+      }
+      
+  }
+    
+  
 }
 
-sub _PARSER{
+##### Method to Parse WSMAN Responses #####
+sub to_list{
   
   my $self = shift;
   my $args = @_;
-  print $_[0];
   
-  
+  if ( !defined $_[0] ){
+    croak "No XML to parse handed over to to_list method"
+  }
+    elsif ( !defined $_[1] ){
+      croak "No Keytag handed over to to_list method e.g.: s:Fault, n:Items"
+  }
+    
   
   
   my $parser = XML::LibXML->new();
 
-my $doc = XML::LibXML->load_xml(
+  my $doc = XML::LibXML->load_xml(
       string => $_[0]
       # parser options ...
-    );
+  );
 
-my $root = $doc->documentElement();
+  my $root = $doc->documentElement();
+  my @nodes = $root->getElementsByTagName($_[1]);
+  my $output;
+  my @childnodes;
+  my @childnodes2;
+  my @childnodes3;
 
-my @nodes = $root->findnodes( './s:Body/n:PullResponse/n:Items/*') && $root->findnodes('./s:Body/wsmid:IdentifyResponse/*');
-my $output;
-my @childnodes;
-my @childnodes2;
-my @childnodes3;
+  foreach (@nodes){
+    #print Dumper($_);
+    $output .= "---------------------------------------------";
+    $output .= $_->localName;
+    $output .= "---------------------------------------------\n";
 
-foreach (@nodes){
-  $output .= "----";
-  $output .= $_->localName;
-  $output .= "----\n";
-  if ($_->hasChildNodes() == '1'){
-    @childnodes = $_->childNodes();
-    foreach (@childnodes){
-      if ($_->nodeName ne '#text' && $_->hasChildNodes() == '1'){
-        $output .= $_->localName;
-        $output .= " -> ";
-        @childnodes2 = $_->childNodes();
-          foreach (@childnodes2){
-            if ($_->hasChildNodes() == '0'){
-              $output .= $_->nodeValue;
-              $output .= "\n";
+    if ($_->hasChildNodes() == '1'){
+      @childnodes = $_->childNodes();
+      foreach (@childnodes){
+
+        if ($_->nodeName ne '#text' && $_->hasChildNodes() == '1'){
+          $output .= $_->localName;
+          $output .= " -> ";
+          @childnodes2 = $_->childNodes();
+            foreach (@childnodes2){
+              if ($_->hasChildNodes() == '0'){
+                $output .= $_->nodeValue;
+                $output .= "\n";
+              }
+
+              else{
+                @childnodes3 = $_->childNodes();
+                foreach (@childnodes3){
+                  if ($_->hasChildNodes() == '0'){
+                    $output .= $_->nodeValue;
+                    $output .= "\n";
+
+                  }
+
+                }
+
+              }
+
             }
-        else{
-          @childnodes3 = $_->childNodes();
-          foreach (@childnodes3){
-            if ($_->hasChildNodes() == '0'){
-              $output .= $_->nodeValue;
-              $output .= "\n";
-            }
+
           }
-        
+
+        }
+
       }
+
+    else{
+      $output .= "$_->localName hat keine Objekte unterhalb sich selbst!\n";
     }
-  }
-}   
-  }
-  else{
-  print $_->localName," hat keine childnodes\n";
-  }
-  
-};
 
-return $output;
+  }
+
+  #print $output;
+  return $output;
+  
 }
 
-sub close{
 
- my $self = shift;
-  
- $action->removeChildNodes();
- $to->removeChildNodes();
- $MessageID->removeChildNodes();
- $body->removeChildNodes();
- $header->removeChild($selectorset);
-# TODO: destroyer einbinden.
-}
-
-1; # Module müssen einen Rückgabewert von 1 haben.
+1; # Magic value for Perl Packages;
