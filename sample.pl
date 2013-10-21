@@ -8,17 +8,14 @@ use XML::Simple;
 use lib::easy;
 my $xml = new XML::Simple;
 
-my $exit_unkn = '3';
-
-$SIG{KILL} = $SIG{TERM} = sub{ exit( $exit_unkn ); };
-
+=pod
 
 my $WSMAN = lib::easy->session( ### Erstellen des Verbindungsobjekts
 	
-	"host"		=>	"172.16.0.234",
+	"host"		=>	"",
 	"port"		=>      "443",
         "user"		=>      "nagios",	
-        "passwd"	=>      "nagios1337",
+        "passwd"	=>      "",
         "urlpath"	=>      "wsman",
         "proto"		=>	"https",
         "verbose"	=>	"0",
@@ -26,57 +23,54 @@ my $WSMAN = lib::easy->session( ### Erstellen des Verbindungsobjekts
 
 );
 
-#my $identify = $WSMAN->identify(); ### WSMAN-Provider auf der Zielmaschine prüfen
+my $identify = $WSMAN->identify(); ### WSMAN-Provider auf der Zielmaschine prüfen
 
-#$WSMAN->close();
+$WSMAN->close();
 my $enum;
-eval {
+
  $enum = $WSMAN->enumerate(
 
 	"class"		=>	"DCIM_SystemView", ### Klasse die durchsucht werden solll
 	"ns"		=>	"root/dcim", ### Namespace der die Klasse beinhaltet
 	"optimized"	=>	"true", ### Automatische Enumeration 
 	"maxelements"	=>	"512", ### Bestimmt die Anzahl der Rückgabeelemente in wsman:Items
-#        "Filter"	=>	"Select * from DCIM_View where InstanceID='DIMM.Socket.A1'", ### CQL Ausgabefilter
- #	      "eprmode"       =>      "true" ### Endpoint Reference Mode
-#	"SelectorSet"	=>	{"__cimnamespace" => "root/dcim"} ### Selektoren zur Auswahl eines konkreten Elementes aus der Aufzählung
+        "Filter"	=>	"Select * from DCIM_View where InstanceID='DIMM.Socket.A1'", ### CQL Ausgabefilter
+        "eprmode"       =>      "true" ### Endpoint Reference Mode
+	"SelectorSet"	=>	{"__cimnamespace" => "root/dcim"} ### Selektoren zur Auswahl eines konkreten Elementes aus der Aufzählung
 );
 };
-#my $output = $enum;
-if ($@){
-	print "UNKNOWN: $@";
-	exit $exit_unkn;
-}
-
-
-#my $get = $WSMAN->get(
-#
-#	"class"		=>	"DCIM_SystemString", ### Die Klasse aus welcher eine Instanz abgerufen werden soll
-#	"ns"		=>	"root/dcim", ### Namespace der die Klasse enthaelt
-#	"SelectorSet"	=>	{"InstanceID" => "System.Embedded.1#LCD.1#CurrentDisplay"} ### Selektoren zur Auswahl einer konkreten Instanz aus der Klasse
-#);
 
 
 
-#my $invoke = $WSMAN->invoke(
+my $get = $WSMAN->get(
 
-	# "class"		=>	"DCIM_SystemManagementService", ### Die Klasse die die Invoke Methode enthaelt
-	# "InvokeClass"   =>	"IdentifyChassis", ### Die Invoke Methode selbst
-        # "SelectorSet"   =>	{"__cimnamespace" => "root/dcim", ### Selektoren für die Invoke Methode, sind der Doku delltechcenter.com/lc unter "Profiles" zu entnehmen
+	"class"		=>	"DCIM_SystemString", ### Die Klasse aus welcher eine Instanz abgerufen werden soll
+	"ns"		=>	"root/dcim", ### Namespace der die Klasse enthaelt
+	"SelectorSet"	=>	{"InstanceID" => "System.Embedded.1#LCD.1#CurrentDisplay"} ### Selektoren zur Auswahl einer konkreten Instanz aus der Klasse
+);
+
+
+
+my $invoke = $WSMAN->invoke(
+
+	 "class"		=>	"DCIM_SystemManagementService", ### Die Klasse die die Invoke Methode enthaelt
+	 "InvokeClass"   =>	"IdentifyChassis", ### Die Invoke Methode selbst
+         "SelectorSet"   =>	{"__cimnamespace" => "root/dcim", ### Selektoren für die Invoke Methode, sind der Doku delltechcenter.com/lc unter "Profiles" zu entnehmen
 				 # "SystemCreationClassName" => "DCIM_ComputerSystem",
 				 # "SystemName" => "srv:system",
 				 # "CreationClassName" => "DCIM_SystemManagementService",
 				 # "Name" => "DCIM:SystemManagementService"},
 
-	# "Invoke_Input"	=>	{"IdentifyState" => "0"} ### Wert/Schluessel Paar für die Invoke Methode
+	 "Invoke_Input"	=>	{"IdentifyState" => "0"} ### Wert/Schluessel Paar für die Invoke Methode
 
 
 # );
-#my $data = $xml->XMLin($enum);
+my $data = $xml->XMLin($enum);
 print $WSMAN->to_list($enum, "n1:DCIM_SystemView");
-#print $WSMAN->to_list($enum, "p:Win32_Directory");
-#print "DELL LCD: $get->{'s:Body'}->{'n1:DCIM_SystemString'}->{'n1:CurrentValue'}\n";
+print $WSMAN->to_list($enum, "p:Win32_Directory");
+print "DELL LCD: $get->{'s:Body'}->{'n1:DCIM_SystemString'}->{'n1:CurrentValue'}\n";
 
+=cut
 
 exit 0;
 
