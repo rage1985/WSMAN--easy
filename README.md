@@ -17,7 +17,6 @@ The PUT Method is not implemented yet.
 
 Some Namespace for specific operations are not implemented yet.
 
-SSL connections to Mircosoft Windows WinRM are not possible yet due to an incompability of Curl´s standard SSL-Provider.
 
 ## Description
 
@@ -31,7 +30,7 @@ The module will be WSMAN 1.1.1 compliant when out of beta. See http://www.dmtf.o
 
 Data::UUID
 
-WWW::Curl::Easy
+LWP::UserAgent
 
 MIME::Base64
 
@@ -60,7 +59,8 @@ my $WSMAN = WSMAN::easy->new(
 	"passwd"	=>	"$password",
 	"urlpath"	=>	"$urlpath",
 	"proto"		=>	"$protocol",
-	"verbose"	=>	"$verbosemode"
+	"verbose"	=>	"$verbosemode",
+	"timeout"	=>	"$timeout"
 	
 );
 ```
@@ -118,6 +118,15 @@ my $invoke = $WSMAN->invoke(
 );
 	
 ```
+### WSMAN::easy->to_list() 
+
+```perl
+
+my $results = $WSMAN->to_list($response, "w:ITEMS")
+
+
+```
+
 
 ## Author
 
