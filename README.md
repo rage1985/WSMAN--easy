@@ -32,14 +32,9 @@ Data::UUID
 
 LWP::UserAgent
 
-MIME::Base64
-
-Data::Dumper (Will be removed soon)
-
 XML::LibXML
 
-XML::Simple  (Will also be removed soon)
-
+XML::Simple
 
 
 ## Installation
